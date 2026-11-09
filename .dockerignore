@@ -1,0 +1,6 @@
+.git
+.gitignore
+bin
+*.o
+*.out
+README.md

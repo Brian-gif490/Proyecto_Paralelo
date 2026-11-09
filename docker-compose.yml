@@ -1,0 +1,90 @@
+version: "3.8"
+
+x-node-common: &node-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: tel420-cluster:latest
+  restart: unless-stopped
+  tty: true
+  stdin_open: true
+  working_dir: /app
+  volumes:
+    - ./src:/app/src
+    - ./data:/app/data
+    - ./scripts:/app/scripts
+    - ./config:/app/config
+    - ./bin:/app/bin
+    - ssh_keys:/ssh-keys
+  networks:
+    - cluster_net
+  healthcheck:
+    test: ["CMD-SHELL", "pgrep -x sshd >/dev/null || exit 1"]
+    interval: 10s
+    timeout: 3s
+    retries: 10
+    start_period: 20s
+
+services:
+  master:
+    <<: *node-common
+    container_name: tel420-master
+    hostname: master
+    environment:
+      NODE_NAME: master
+      ROLE: master
+      MASTER_HOST: master
+      PEER_HOSTS: "worker1 worker2"
+    ports:
+      - "2222:22"
+    networks:
+      cluster_net:
+        ipv4_address: 172.20.0.2
+    depends_on:
+      worker1:
+        condition: service_started
+      worker2:
+        condition: service_started
+
+  worker1:
+    <<: *node-common
+    container_name: tel420-worker1
+    hostname: worker1
+    environment:
+      NODE_NAME: worker1
+      ROLE: worker
+      MASTER_HOST: master
+      PEER_HOSTS: "master worker2"
+    ports:
+      - "2223:22"
+    networks:
+      cluster_net:
+        ipv4_address: 172.20.0.3
+
+  worker2:
+    <<: *node-common
+    container_name: tel420-worker2
+    hostname: worker2
+    environment:
+      NODE_NAME: worker2
+      ROLE: worker
+      MASTER_HOST: master
+      PEER_HOSTS: "master worker1"
+    ports:
+      - "2224:22"
+    networks:
+      cluster_net:
+        ipv4_address: 172.20.0.4
+
+networks:
+  cluster_net:
+    name: tel420_cluster_net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+
+volumes:
+  ssh_keys:
+    name: tel420_ssh_keys

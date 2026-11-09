@@ -1,0 +1,6 @@
+bin/*
+!bin/.gitkeep
+*.o
+*.out
+.vscode/
+.idea/
